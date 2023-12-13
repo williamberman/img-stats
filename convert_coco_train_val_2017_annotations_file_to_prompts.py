@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import json
 import random
 import os
@@ -23,11 +25,10 @@ if __name__ == "__main__":
 
     with open('coco-validation-2017-prompts.jsonl', 'w') as f:
         for i, annotation in enumerate(annotations):
-            for _ in range(2):
+            for j in range(2):
                 caption = annotation[int(random.random() * len(annotation))]['caption']
                 line = json.dumps(caption)
-                if i != len(annotations) - 1:
-                    line += '\n'
+                line += '\n'
                 f.write(line)
                 ctr += 1
 
