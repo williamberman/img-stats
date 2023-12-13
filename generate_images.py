@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import os
 import json
 import logging
@@ -7,6 +9,7 @@ from omegaconf import OmegaConf
 import importlib
 import numpy as np
 import random
+from tqdm import tqdm
 
 OmegaConf.register_new_resolver('torch_dtype', lambda x: getattr(torch, x))
 
@@ -42,9 +45,10 @@ def main():
 
     model = get_model()
     prompts = batch(get_prompts(), config.batch_size)
+    prompts = [x for x in prompts]
 
     with Writer() as writer:
-        for prompts_ in prompts:
+        for prompts_ in tqdm(prompts):
             images = model(prompts_, **model_config.args, **config.sweep_args).images
             writer.write(prompts_, images)
 
@@ -65,7 +69,9 @@ def get_model():
     module = importlib.import_module('.'.join(splitted[:-2]))
     class_ = getattr(module, splitted[-2])
     constructor = getattr(class_, splitted[-1])
-    return constructor(**model_config.constructor_args).to(config.device)
+    model = constructor(**model_config.constructor_args).to(config.device)
+    model.set_progress_bar_config(disable=True)
+    return model
 
 def get_prompts():
     assert stats_config.dataset == 'coco-validation-2017'

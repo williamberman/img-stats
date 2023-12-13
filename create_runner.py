@@ -14,7 +14,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 
 config_file = os.environ.get('CONFIG_FILE', os.path.join(cur_dir, 'img_stats.yaml'))
 config = OmegaConf.merge(
-    dict(gpus=8, write_to="runner.sh"),
+    dict(gpus=8, write_to="runner.sh", run_in_background=True),
     OmegaConf.load(config_file), 
     OmegaConf.from_cli()
 )
@@ -55,10 +55,13 @@ def main():
                     logfile = os.path.join(config.log_dir, runner_id + '_generate_images.log')
 
                     envvars = f"CUDA_VISIBLE_DEVICES={gpu}"
-                    cmd = f"python {os.path.join(cur_dir, 'generate_images.py')}"
+                    cmd = f"{os.path.join(cur_dir, 'generate_images.py')}"
                     args = f"model_config={model_config} stats_config={stats_config} sweep_args=\"{sweep_args}\" runner_id={runner_id}"
 
-                    run_cmd = f"{envvars} {cmd} {args} &> {logfile} &"
+                    run_cmd = f"{envvars} {cmd} {args}"
+
+                    if config.run_in_background:
+                        run_cmd += f" &> {logfile} &"
 
                     f.write(run_cmd + '\n\n')
 
