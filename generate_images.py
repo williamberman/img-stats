@@ -1,103 +1,105 @@
 import os
-import argparse
 import json
 import logging
 import torch
-from diffusers import DiffusionPipeline
 import uuid
+from omegaconf import OmegaConf
+import importlib
+import numpy as np
+import random
+
+OmegaConf.register_new_resolver('torch_dtype', lambda x: getattr(torch, x))
 
 logger = logging.getLogger(__name__)
 
+cur_dir = os.path.dirname(os.path.abspath(__file__))
+
+config_file = os.environ.get('CONFIG_FILE', os.path.join(cur_dir, 'img_stats.yaml'))
+config = OmegaConf.merge(
+    dict(seed=0, batch_size=4),
+    OmegaConf.load(config_file), 
+    OmegaConf.from_cli()
+)
+
+def sub_config(path):
+    config_ = config
+    for x in path.split('.'):
+        try:
+            x = int(x)
+        except:
+            ...
+        config_ = config_[x]
+    return config_
+
+model_config = sub_config(config.model_config)
+stats_config = sub_config(config.stats_config)
+
 def main():
-    args = argparse.ArgumentParser()
-    args.add_argument("--slurm", action="store_true")
-    args.add_argument("--device", type=str, default="cuda", required=False)
-    args.add_argument("--guidance_scale", type=float, required=True)
-    args.add_argument("--save_path", type=str, required=False)
-    args.add_argument("--batch_size", type=int, required=False, default=4)
-    args.add_argument("--model", choices=["sd15", "muse-256", "muse-512"], required=False)
-    # http://images.cocodataset.org/annotations/annotations_trainval2017.zip
-    args.add_argument("--captions_file", required=False)
-    args = args.parse_args()
+    seed_all(config.seed)
 
-    if args.save_path is None:
-        args.save_path = os.environ["SAVE_PATH"]
+    model = get_model()
+    prompts = batch(get_prompts(), config.batch_size)
 
-    if args.captions_file is None:
-        args.captions_file = os.environ["CAPTIONS_FILE"]
+    with Writer() as writer:
+        for prompts_ in prompts:
+            images = model(prompts_, **config.sweep_args)
+            writer.write(prompts_, images)
 
-    if args.model is None:
-        args.model = os.environ["MODEL"]
+def seed_all(seed: int):
+    """
+    Args:
+    Helper function for reproducible behavior to set the seed in `random`, `numpy`, `torch`.
+        seed (`int`): The seed to set.
+    """
+    random.seed(seed)
+    np.random.seed(seed)
+    torch.manual_seed(seed)
+    torch.cuda.manual_seed_all(seed)
+    # ^^ safe to call this function even if cuda is not available
 
-    args.save_path = os.path.join(args.save_path, str(args.guidance_scale))
+def get_model():
+    splitted = model_config.constructor.split('.')
+    module = importlib.import_module('.'.join(splitted[:-2]))
+    class_ = getattr(module, splitted[-2])
+    constructor = getattr(class_, splitted[-1])
+    return constructor(**model_config.constructor_args)
 
-    os.makedirs(args.save_path, exist_ok=True)
+def get_prompts():
+    assert stats_config.dataset == 'coco-validation-2017'
+    prompt_file = os.path.join(cur_dir, "coco-validation-2017-prompts.jsonl")
+    with open(prompt_file, 'r') as prompt_file:
+        while True:
+            line = prompt_file.readline()
+            if line == '':
+                break
+            yield json.loads(line)
 
-    if args.slurm:
-        ntasks = int(os.environ["SLURM_NTASKS"])
-        procid = int(os.environ["SLURM_PROCID"])
-    else:
-        ntasks = 1
-        procid = 0
+def batch(iter, batch_size):
+    cur = []
+    for i in iter:
+        cur.append(i)
+        if len(cur) == batch_size:
+            yield cur
+            cur = []
+    if len(cur) > 0:
+        yield cur
 
-    with open(args.captions_file) as f:
-        annotations = json.load(f)
+class Writer:
+    def __init__(self):
+        assert config.save_to.type == 'local_fs'
 
-    annotations_by_image_id = {}
+    def __enter__(self):
+        self.index_file = open(os.path.join(config.save_to.path, 'index.jsonl'), 'w')
 
-    for x in annotations["annotations"]:
-        if x["image_id"] not in annotations_by_image_id:
-            annotations_by_image_id[x["image_id"]] = []
-        annotations_by_image_id[x["image_id"]].append(x)
+    def write(self, prompts, images):
+        for prompt, image in zip(prompts, images):
+            filename = str(uuid.uuid4())
+            filepath = os.path.join(config.save_to.path, f"{filename}.png")
+            image.save(filepath)
+            self.index_file.write(json.dumps([filename, prompt]) + '\n')
 
-    annotations = [x for x in annotations_by_image_id.values()]
-    
-    logger.warning(f"num images {len(annotations)}.")
-    logger.warning("for validation 2017, this should be 5000")
-
-    if args.model == "sd15":
-        pipeline = DiffusionPipeline.from_pretrained("runwayml/stable-diffusion-v1-5", torch_dtype=torch.float16, variant="fp16", safety_checker=None).to(args.device)
-        pipeline.set_progress_bar_config(disable=True)
-        pipeline.to(args.device)
-    elif args.model == "muse-512":
-        pipeline = DiffusionPipeline.from_pretrained("huggingface/amused-512", torch_dtype=torch.float16, variant="fp16").to(args.device)
-        pipeline.vqvae.to(torch.float32)
-        pipeline.set_progress_bar_config(disable=True)
-    elif args.model == "muse-256":
-        pipeline = DiffusionPipeline.from_pretrained("huggingface/amused-256", torch_dtype=torch.float16, variant="fp16").to(args.device)
-        pipeline.vqvae.to(torch.float32)
-        pipeline.set_progress_bar_config(disable=True)
-    else:
-        assert False
-
-    prompts_per_task = len(annotations) // ntasks
-
-    start_prompt = prompts_per_task * procid
-
-    generator = torch.Generator(args.device).manual_seed(0)
-
-    with open(os.path.join(args.save_path, "index.json"), "w") as index_file:
-        for prompt_idx in range(start_prompt, start_prompt+prompts_per_task, args.batch_size):
-            prompts = [
-                annotations[prompt_idx_][0]["caption"]
-                for
-                prompt_idx_ in range(prompt_idx, prompt_idx+args.batch_size)
-            ]
-            logger.warning(prompt_idx)
-
-            images = pipeline(
-                prompts,
-                generator=generator,
-                guidance_scale=args.guidance_scale,
-                num_images_per_prompt=2 # 2 per for 5k prompts brings us to 10k images
-            ).images
-
-            for image_idx, image in enumerate(images):
-                filename = str(uuid.uuid4())
-                filepath = os.path.join(args.save_path, f"{filename}.png")
-                image.save(filepath)
-                prompt = prompts[image_idx % len(prompts)]
-                index_file.write(json.dumps([filename, prompt]) + '\n')
+    def __exit__(self):
+        self.index_file.close()
 
 if __name__ == "__main__":
     main()

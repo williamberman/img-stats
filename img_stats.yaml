@@ -1,35 +1,31 @@
 models:
-- type: diffusers
-  pipeline:
-    class: "DiffusionPipeline"
+- constructor: diffusers.DiffusionPipeline.from_pretrained
+  constructor_args:
     pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
-    torch_dtype: float16
+    torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
-    safety_checker: None
+    safety_checker: null
   sweep_args:
   - guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
 
-- type: diffusers
-  pipeline:
-    class: "DiffusionPipeline"
+- constructor: diffusers.DiffusionPipeline.from_pretrained
+  constructor_args:
     pretrained_model_name_or_path: "huggingface/amused-512"
-    torch_dtype: float16
+    torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
   sweep_args:
   - guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0, 20.0]
 
-- type: diffusers
-  pipeline:
-    class: "DiffusionPipeline"
+- constructor: diffusers.DiffusionPipeline.from_pretrained
+  constructor_args:
     pretrained_model_name_or_path: "huggingface/amused-256"
-    torch_dtype: float16
+    torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
   sweep_args:
   - guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0, 20.0]
 
 stats:
 - dataset: coco-validation-2017
-  images_per_prompt: 2
   stats: ['fid', 'isc', 'clip']
 
 save_to: 

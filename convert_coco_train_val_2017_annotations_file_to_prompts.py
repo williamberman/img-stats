@@ -19,12 +19,18 @@ if __name__ == "__main__":
 
     annotations = [x for x in annotations_by_image_id.values()]
 
+    ctr = 0
+
     with open('coco-validation-2017-prompts.jsonl', 'w') as f:
         for i, annotation in enumerate(annotations):
-            caption = annotation[int(random.random() * len(annotation))]['caption']
-            line = json.dumps(caption)
-            if i != len(annotations) - 1:
-                line += '\n'
-            f.write(line)
+            for _ in range(2):
+                caption = annotation[int(random.random() * len(annotation))]['caption']
+                line = json.dumps(caption)
+                if i != len(annotations) - 1:
+                    line += '\n'
+                f.write(line)
+                ctr += 1
+
+    print(f"wrote total {ctr} prompts")
 
     os.system('rm -rf annotations annotations_trainval2017.zip')
