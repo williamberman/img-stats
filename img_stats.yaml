@@ -6,7 +6,7 @@ models:
     variant: "fp16"
     safety_checker: null
   sweep_args:
-  - guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
 
 - constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
@@ -14,7 +14,7 @@ models:
     torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
   sweep_args:
-  - guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0, 20.0]
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0, 20.0]
 
 - constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
@@ -22,12 +22,14 @@ models:
     torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
   sweep_args:
-  - guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0, 20.0]
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0, 20.0]
 
 stats:
 - dataset: coco-validation-2017
-  stats: ['fid', 'isc', 'clip']
+  metrics: ['fid', 'isc', 'clip']
 
 save_to: 
   type: local_fs
-  path: ~/out/
+  path: out/
+
+log_dir: logs/
