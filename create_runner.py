@@ -1,7 +1,10 @@
+#!/usr/bin/env python
+
 import os
 import logging
 import torch
 from omegaconf import OmegaConf
+import stat
 
 OmegaConf.register_new_resolver('torch_dtype', lambda x: getattr(torch, x))
 
@@ -60,6 +63,9 @@ def main():
                     f.write(run_cmd + '\n\n')
 
                     gpu = (gpu + 1) % config.gpus
+
+    st = os.stat(config.write_to)
+    os.chmod(config.write_to, st.st_mode | stat.S_IEXEC)
 
 if __name__ == "__main__":
     main()
