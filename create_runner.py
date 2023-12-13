@@ -52,11 +52,11 @@ def main():
                     stats_config = f"stats.{stats_idx}"
 
                     runner_id = get_runner_id(model_config, sweep_args)
-                    logfile = os.path.join(config.log_dir, runner_id + '.log')
+                    logfile = os.path.join(config.log_dir, runner_id + '_generate_images.log')
 
                     envvars = f"CUDA_VISIBLE_DEVICES={gpu}"
                     cmd = f"python {os.path.join(cur_dir, 'generate_images.py')}"
-                    args = f"model_config={model_config} stats_config={stats_config} sweep_args=\"{sweep_args}\""
+                    args = f"model_config={model_config} stats_config={stats_config} sweep_args=\"{sweep_args}\" runner_id={runner_id}"
 
                     run_cmd = f"{envvars} {cmd} {args} &> {logfile} &"
 

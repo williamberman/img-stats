@@ -16,10 +16,13 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 
 config_file = os.environ.get('CONFIG_FILE', os.path.join(cur_dir, 'img_stats.yaml'))
 config = OmegaConf.merge(
-    dict(seed=0, batch_size=4),
+    dict(seed=0, batch_size=4, device='cuda'),
     OmegaConf.load(config_file), 
     OmegaConf.from_cli()
 )
+if config.save_to.type == 'local_fs':
+    config.save_to.path = os.path.join(cur_dir, config.save_to.path, config.runner_id)
+    os.makedirs(config.save_to.path, exist_ok=True)
 
 def sub_config(path):
     config_ = config
@@ -42,7 +45,7 @@ def main():
 
     with Writer() as writer:
         for prompts_ in prompts:
-            images = model(prompts_, **config.sweep_args)
+            images = model(prompts_, **model_config.args, **config.sweep_args).images
             writer.write(prompts_, images)
 
 def seed_all(seed: int):
@@ -62,7 +65,7 @@ def get_model():
     module = importlib.import_module('.'.join(splitted[:-2]))
     class_ = getattr(module, splitted[-2])
     constructor = getattr(class_, splitted[-1])
-    return constructor(**model_config.constructor_args)
+    return constructor(**model_config.constructor_args).to(config.device)
 
 def get_prompts():
     assert stats_config.dataset == 'coco-validation-2017'
@@ -90,6 +93,7 @@ class Writer:
 
     def __enter__(self):
         self.index_file = open(os.path.join(config.save_to.path, 'index.jsonl'), 'w')
+        return self
 
     def write(self, prompts, images):
         for prompt, image in zip(prompts, images):
@@ -98,7 +102,7 @@ class Writer:
             image.save(filepath)
             self.index_file.write(json.dumps([filename, prompt]) + '\n')
 
-    def __exit__(self):
+    def __exit__(self, exc_type, exc_value, traceback):
         self.index_file.close()
 
 if __name__ == "__main__":
