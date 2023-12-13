@@ -30,6 +30,6 @@ stats:
 
 save_to: 
   type: local_fs
-  path: out/
+  path: out
 
-log_dir: logs/
+log_dir: logs

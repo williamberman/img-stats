@@ -15,6 +15,7 @@ config = OmegaConf.merge(
     OmegaConf.load(config_file), 
     OmegaConf.from_cli()
 )
+config.log_dir = os.path.join(cur_dir, config.log_dir)
 
 def get_sweep_args(sweep_args):
     res = [{}]
@@ -50,11 +51,15 @@ def main():
                     runner_id = get_runner_id(model_config, sweep_args)
                     logfile = os.path.join(config.log_dir, runner_id + '.log')
 
-                    run_cmd = f"CUDA_VISIBLE_DEVICES={gpu} python {os.path.join(cur_dir, 'generate_images.py')} model_config={model_config} stats_config={stats_config} sweep_args=\"{sweep_args}\" &> {logfile} &"
+                    envvars = f"CUDA_VISIBLE_DEVICES={gpu}"
+                    cmd = f"python {os.path.join(cur_dir, 'generate_images.py')}"
+                    args = f"model_config={model_config} stats_config={stats_config} sweep_args=\"{sweep_args}\""
+
+                    run_cmd = f"{envvars} {cmd} {args} &> {logfile} &"
+
                     f.write(run_cmd + '\n\n')
 
                     gpu = (gpu + 1) % config.gpus
-
 
 if __name__ == "__main__":
     main()
