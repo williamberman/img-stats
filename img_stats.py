@@ -54,6 +54,13 @@ stats_config = OmegaConf.merge(
 def main():
     seed_all(config.seed)
 
+    logger.warning(f"config.device: {config.device}")
+
+    if 'CUDA_VISIBLE_DEVICES' in os.environ:
+        logger.warning(f"CUDA_VISIBLE_DEVICES: {os.environ['CUDA_VISIBLE_DEVICES']}")
+    else:
+        logger.warning('CUDA_VISIBLE_DEVICES not set')
+
     if config.generate_images:
         logger.warning("generating images")
 
