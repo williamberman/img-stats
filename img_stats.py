@@ -24,11 +24,11 @@ logger = logging.getLogger(__name__)
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 
-config_file = os.environ.get('CONFIG_FILE', os.path.join(cur_dir, 'img_stats.yaml'))
+cli_config = OmegaConf.merge(dict(config_file=os.path.join(cur_dir, "img_stats.yaml")), OmegaConf.from_cli())
 config = OmegaConf.merge(
     dict(seed=0, generate_images_batch_size=4, clip_score_batch_size=16, device='cuda', generate_images=True, take_metrics=True, sweep_args={}),
-    OmegaConf.load(config_file), 
-    OmegaConf.from_cli(),
+    OmegaConf.load(cli_config.config_file), 
+    cli_config,
 )
 if config.save_to.type == 'local_fs':
     config.save_to.path = os.path.join(cur_dir, config.save_to.path, config.runner_id)

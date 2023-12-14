@@ -49,11 +49,13 @@ logger = logging.getLogger(__name__)
 
 cur_dir = os.path.dirname(os.path.abspath(__file__))
 
-config_file = os.environ.get('CONFIG_FILE', os.path.join(cur_dir, 'img_stats.yaml'))
+cli_config = OmegaConf.merge(dict(config_file="img_stats.yaml"), OmegaConf.from_cli())
+cli_config.config_file = os.path.join(cur_dir, cli_config.config_file)
+
 config = OmegaConf.merge(
     dict(gpus=8, run_in_background=True, slurm=False, run_prefix=gen_id(delimiter='_')),
-    OmegaConf.load(config_file), 
-    OmegaConf.from_cli()
+    OmegaConf.load(cli_config.config_file), 
+   cli_config 
 )
 config.log_dir = os.path.join(cur_dir, config.log_dir)
 
@@ -141,7 +143,7 @@ def make_cmds():
                 runner_id = f"{config.run_prefix}_{run_suffix}"
                 logfile = os.path.join(config.log_dir, runner_id + '.log')
 
-                args = f'model_config={model_config} stats_config={stats_config} run_prefix={config.run_prefix} run_suffix={run_suffix} runner_id={runner_id} sweep_args="{sweep_args}"'
+                args = f'config_file={config.config_file} model_config={model_config} stats_config={stats_config} run_prefix={config.run_prefix} run_suffix={run_suffix} runner_id={runner_id} sweep_args="{sweep_args}"'
 
                 for k, v in config.models[model_idx].get('img_stats_args', {}).items():
                     args += f' {k}={v}'
