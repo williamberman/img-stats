@@ -6,6 +6,7 @@ import torch
 from omegaconf import OmegaConf
 import stat
 from random import choice, randint
+import math
 
 # https://github.com/ferhatelmas/pyhaikunator/blob/e55c66393ed933d598489150ec2c20c70d190a72/haikunator.py
 
@@ -50,11 +51,14 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 
 config_file = os.environ.get('CONFIG_FILE', os.path.join(cur_dir, 'img_stats.yaml'))
 config = OmegaConf.merge(
-    dict(gpus=8, write_to="runner.sh", run_in_background=True, slurm=False, run_prefix=gen_id(delimiter='_')),
+    dict(gpus=8, run_in_background=True, slurm=False, run_prefix=gen_id(delimiter='_')),
     OmegaConf.load(config_file), 
     OmegaConf.from_cli()
 )
 config.log_dir = os.path.join(cur_dir, config.log_dir)
+
+if 'write_to' not in config:
+    config.write_to = 'runner.slurm' if config.slurm else 'runner.sh'
 
 def get_sweep_args(sweep_args):
     res = [{}]
@@ -78,46 +82,74 @@ def get_runner_id(model_config, sweep_args):
 
     return runner_id
 
+
 def main():
     os.makedirs(config.log_dir, exist_ok=True)
 
+    cmds = make_cmds()
+
     with open(config.write_to, 'w') as f:
-        gpu = 0
+        if config.slurm:
+            f.write('#! /bin/bash \n')
+            f.write(f'#SBATCH --nodes {int(math.ceil(float(len(cmds)) / 8.0))}\n')
+            f.write(f'#SBATCH --ntasks {len(cmds)}\n')
+            f.write('#SBATCH --cpus-per-task=12\n')
+            f.write('#SBATCH --gpus-per-task=1\n')
+            f.write('#SBATCH --exclusive\n')
+            f.write('#SBATCH --partition=production-cluster\n')
+            f.write('\n')
+            f.write('set -e -u \n\n')
+        else:
+            f.write('#! /bin/bash \n\n')
 
-        f.write('#! /bin/bash \n\n')
+        f.write('echo "starting runner script"\n\n')
 
-        for model_idx in range(len(config.models)):
-            for sweep_args in get_sweep_args(config.models[model_idx].get('sweep_args', {})):
-                for stats_idx in range(len(config.stats)):
-                    model_config = f"models.{model_idx}"
-                    stats_config = f"stats.{stats_idx}"
+        for cmd in cmds:
+            f.write(f"{cmd}\n\n")
 
-                    runner_id = get_runner_id(model_config, sweep_args)
-                    logfile = os.path.join(config.log_dir, runner_id + '.log')
+        if config.slurm:
+            f.write('echo "finished queueing jobs. waiting for completion" \n')
+            f.write('wait\n')
+            f.write('echo "all jobs finished. exiting."\n')
+        else:
+            f.write('echo "all jobs running in background, exiting runner script but jobs are still running."\n')
 
-                    args = f'model_config={model_config} stats_config={stats_config} runner_id={runner_id}'
-                    cmd = f"/usr/bin/time -f '%E real,%U user,%S sys' {os.path.join(cur_dir, 'img_stats.py')} {args}"
-
-                    if config.slurm:
-                        cmd += f' sweep_args=\\"{sweep_args}\\"'
-                        sbatch_cmd = "sbatch --ntasks=1 --cpus-per-task=12 --gpus-per-task=1"
-                        full_cmd = f"{sbatch_cmd} --output={logfile} --wrap \"{cmd}\""
-                    else:
-                        cmd += f' sweep_args="{sweep_args}"'
-
-                        envvars = f"CUDA_VISIBLE_DEVICES={gpu}"
-
-                        full_cmd = f"{envvars} {cmd}"
-
-                        if config.run_in_background:
-                            full_cmd += f" &> {logfile} &"
-
-                    f.write(full_cmd + '\n\n')
-
-                    gpu = (gpu + 1) % config.gpus
 
     st = os.stat(config.write_to)
     os.chmod(config.write_to, st.st_mode | stat.S_IEXEC)
+
+def make_cmds():
+    gpu = 0
+
+    cmds = []
+
+    for model_idx in range(len(config.models)):
+        for sweep_args in get_sweep_args(config.models[model_idx].get('sweep_args', {})):
+            for stats_idx in range(len(config.stats)):
+                model_config = f"models.{model_idx}"
+                stats_config = f"stats.{stats_idx}"
+
+                runner_id = get_runner_id(model_config, sweep_args)
+                logfile = os.path.join(config.log_dir, runner_id + '.log')
+
+                args = f'model_config={model_config} stats_config={stats_config} runner_id={runner_id} sweep_args="{sweep_args}"'
+                cmd = f"/usr/bin/time -f '%E real,%U user,%S sys' {os.path.join(cur_dir, 'img_stats.py')} {args}"
+
+                if config.slurm:
+                    full_cmd = f"srun --ntasks=1 --nodes=1 --exclusive --output={logfile} {cmd} &"
+                else:
+                    envvars = f"CUDA_VISIBLE_DEVICES={gpu}"
+
+                    full_cmd = f"{envvars} {cmd}"
+
+                    if config.run_in_background:
+                        full_cmd += f" &> {logfile} &"
+
+                cmds.append(full_cmd)
+
+                gpu = (gpu + 1) % config.gpus
+
+    return cmds
 
 if __name__ == "__main__":
     main()
