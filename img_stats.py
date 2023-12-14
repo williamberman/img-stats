@@ -13,6 +13,7 @@ from tqdm import tqdm
 import PIL.Image
 from transformers import CLIPModel, CLIPProcessor
 import math
+import torch_fidelity
 
 OmegaConf.register_new_resolver('torch_dtype', lambda x: getattr(torch, x))
 
@@ -69,11 +70,22 @@ def main():
         if 'clip' in stats_config.metrics:
             metrics['clip'] = compute_clip()
 
-        # if 'fid' in stats_config.metrics:
-        #     metrics['fid'] = compute_fid()
+        do_isc = 'isc' in stats_config.metrics
+        do_fid = 'fid' in stats_config.metrics
 
-        # if 'isc' in stats_config.metrics:
-        #     metrics['isc'] = compute_isc()
+        if do_isc or do_fid:
+            assert stats_config.dataset == 'coco-validation-2017'
+            cur_dir
+            metrics.update(
+                **torch_fidelity.calculate_metrics(
+                    input1=config.save_to.path, 
+                    input2=os.path.join(cur_dir, 'coco_val_2017'),
+                    cuda=True, 
+                    isc=do_isc, 
+                    fid=do_fid, 
+                    verbose=True,
+                )
+            )
 
         assert config.save_to.type == 'local_fs'
         with open(os.path.join(config.save_to.path, 'metrics.json'), 'w') as metrics_file:
@@ -195,9 +207,6 @@ def compute_clip():
     images_.close()
 
     return clip_scores_sum/num_images
-
-
-
 
 if __name__ == "__main__":
     main()
