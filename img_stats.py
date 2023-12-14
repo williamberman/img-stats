@@ -79,6 +79,8 @@ def main():
                     writer.write(prompt, image)
                 if prompt_ctr % 100 == 0:
                     wandb.log({f"generate_image.{config.run_suffix}": prompt_ctr})
+                if prompt_ctr == 0:
+                    wandb.log({"image": wandb.Image(images[0], caption=prompts_[0])})
 
     if config.take_metrics:
         logger.warning("taking metrics")
