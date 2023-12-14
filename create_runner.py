@@ -32,11 +32,19 @@ def get_sweep_args(sweep_args):
     return res
 
 def get_runner_id(model_config, sweep_args):
+    if 'run_prefix' in config:
+        runner_id = f"{config.run_prefix}_"
+    else:
+        runner_id = ''
+
+    runner_id += f"{model_config}_"
+
     sweep_arg_keys = [x for x in sweep_args.keys()]
     sweep_arg_keys.sort()
-    runner_id = f"{model_config}_"
+
     for k in sweep_arg_keys:
         runner_id += f"{k}_{sweep_args[k]}"
+
     return runner_id
 
 def main():
@@ -45,6 +53,8 @@ def main():
     with open(config.write_to, 'w') as f:
         gpu = 0
 
+        f.write('#! /bin/bash \n\n')
+
         for model_idx in range(len(config.models)):
             for sweep_args in get_sweep_args(config.models[model_idx].sweep_args):
                 for stats_idx in range(len(config.stats)):
@@ -52,10 +62,10 @@ def main():
                     stats_config = f"stats.{stats_idx}"
 
                     runner_id = get_runner_id(model_config, sweep_args)
-                    logfile = os.path.join(config.log_dir, runner_id + '_generate_images.log')
+                    logfile = os.path.join(config.log_dir, runner_id + '.log')
 
                     envvars = f"CUDA_VISIBLE_DEVICES={gpu}"
-                    cmd = f"{os.path.join(cur_dir, 'generate_images.py')}"
+                    cmd = f"/usr/bin/time -f '%E real,%U user,%S sys' {os.path.join(cur_dir, 'img_stats.py')}"
                     args = f"model_config={model_config} stats_config={stats_config} sweep_args=\"{sweep_args}\" runner_id={runner_id}"
 
                     run_cmd = f"{envvars} {cmd} {args}"

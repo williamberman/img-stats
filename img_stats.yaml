@@ -5,8 +5,19 @@ models:
     torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
     safety_checker: null
+  args:
+    num_inference_steps: 20
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+
+- constructor: diffusers.DiffusionPipeline.from_pretrained
+  constructor_args:
+    pretrained_model_name_or_path: "stabilityai/stable-diffusion-xl-base-1.0"
+    torch_dtype: ${torch_dtype:float16}
+    variant: "fp16"
+  sweep_args:
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    num_inference_steps: [12, 20]
 
 - constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
@@ -27,6 +38,7 @@ models:
 stats:
 - dataset: coco-validation-2017
   metrics: ['fid', 'isc', 'clip']
+  total_images: 30
 
 save_to: 
   type: local_fs
