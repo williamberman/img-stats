@@ -15,6 +15,7 @@ from transformers import CLIPModel, CLIPProcessor
 import math
 import torch_fidelity
 from diffusers.pipelines.wuerstchen import DEFAULT_STAGE_C_TIMESTEPS
+import wandb
 
 OmegaConf.register_new_resolver('torch_dtype', lambda x: getattr(torch, x))
 OmegaConf.register_new_resolver('wurst_stage_c_timesteps', lambda : DEFAULT_STAGE_C_TIMESTEPS)
@@ -53,6 +54,8 @@ stats_config = OmegaConf.merge(
     sub_config(config.stats_config)
 )
 
+wandb.init(project='img-stats', group=config.run_prefix, name=config.runner_id)
+
 def main():
     seed_all(config.seed)
 
@@ -67,13 +70,14 @@ def main():
         logger.warning("generating images")
 
         model = get_model()
-        prompts = tqdm([x for x in batch(get_prompts(), config.generate_images_batch_size)])
+        prompts = tqdm(enumerate([x for x in batch(get_prompts(), config.generate_images_batch_size)]))
 
         with ImagesWriter() as writer:
-            for prompts_ in prompts:
+            for prompt_ctr, prompts_ in prompts:
                 images = model(prompts_, **model_config.args, **config.sweep_args).images
                 for prompt, image in zip(prompts_, images):
                     writer.write(prompt, image)
+                wandb.log({f"generate_image.{config.run_suffix}": prompt_ctr})
 
     if config.take_metrics:
         logger.warning("taking metrics")
@@ -190,12 +194,12 @@ def compute_clip():
 
     clip_processor = CLIPProcessor.from_pretrained("openai/clip-vit-large-patch14")
 
-    images_ = tqdm([x for x in batch(get_images(), config.clip_score_batch_size)])
+    images_ = tqdm(enumerate([x for x in batch(get_images(), config.clip_score_batch_size)]))
 
     clip_scores_sum = 0
     num_images = 0
 
-    for x in images_:
+    for images_ctr, x in images_:
         prompts = []
         images = []
         for filename, prompt in x:
@@ -218,6 +222,8 @@ def compute_clip():
         num_images += len(clip_scores)
 
         images_.set_postfix(clip_score=clip_scores_sum/num_images)
+        wandb.log({f"compute_clip.{config.run_suffix}": images_ctr})
+        wandb.log({f"clip_score.{config.run_suffix}": clip_scores_sum/num_images})
 
     images_.close()
 

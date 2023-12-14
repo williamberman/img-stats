@@ -58,7 +58,7 @@ config = OmegaConf.merge(
 config.log_dir = os.path.join(cur_dir, config.log_dir)
 
 if 'write_to' not in config:
-    config.write_to = 'runner.slurm' if config.slurm else 'runner.sh'
+    config.write_to = f'runner_{config.run_prefix}.slurm' if config.slurm else f'runner_{config.run_prefix}.sh'
 
 def get_sweep_args(sweep_args):
     res = [{}]
@@ -71,22 +71,24 @@ def get_sweep_args(sweep_args):
         res = new
     return res
 
-def get_runner_id(model_config, sweep_args):
-    runner_id = f"{config.run_prefix}_{model_config}"
+def get_run_suffix(model_config, sweep_args):
+    run_suffix = model_config
 
     sweep_arg_keys = [x for x in sweep_args.keys()]
     sweep_arg_keys.sort()
 
     for k in sweep_arg_keys:
-        runner_id += f"_{k}_{sweep_args[k]}"
+        run_suffix += f"_{k}_{sweep_args[k]}"
 
-    return runner_id
+    return run_suffix
 
 
 def main():
     os.makedirs(config.log_dir, exist_ok=True)
 
     cmds = make_cmds()
+
+    logger.warning(f"writing {len(cmds)} commands to: {config.write_to}")
 
     with open(config.write_to, 'w') as f:
         if config.slurm:
@@ -122,6 +124,8 @@ def main():
         st = os.stat(config.write_to)
         os.chmod(config.write_to, st.st_mode | stat.S_IEXEC)
 
+    logger.warning(f"output written to: {config.write_to}")
+
 def make_cmds():
     gpu = 0
 
@@ -133,10 +137,11 @@ def make_cmds():
                 model_config = f"models.{model_idx}"
                 stats_config = f"stats.{stats_idx}"
 
-                runner_id = get_runner_id(model_config, sweep_args)
+                run_suffix = get_run_suffix(model_config, sweep_args)
+                runner_id = f"{config.run_prefix}_{run_suffix}"
                 logfile = os.path.join(config.log_dir, runner_id + '.log')
 
-                args = f'model_config={model_config} stats_config={stats_config} runner_id={runner_id} sweep_args="{sweep_args}"'
+                args = f'model_config={model_config} stats_config={stats_config} run_prefix={config.run_prefix} run_suffix={run_suffix} runner_id={runner_id} sweep_args="{sweep_args}"'
 
                 for k, v in config.models[model_idx].get('img_stats_args', {}).items():
                     args += f' {k}={v}'
