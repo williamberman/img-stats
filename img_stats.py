@@ -14,8 +14,10 @@ import PIL.Image
 from transformers import CLIPModel, CLIPProcessor
 import math
 import torch_fidelity
+from diffusers.pipelines.wuerstchen import DEFAULT_STAGE_C_TIMESTEPS
 
 OmegaConf.register_new_resolver('torch_dtype', lambda x: getattr(torch, x))
+OmegaConf.register_new_resolver('wurst_stage_c_timesteps', lambda : DEFAULT_STAGE_C_TIMESTEPS)
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +27,7 @@ config_file = os.environ.get('CONFIG_FILE', os.path.join(cur_dir, 'img_stats.yam
 config = OmegaConf.merge(
     dict(seed=0, generate_images_batch_size=4, clip_score_batch_size=16, device='cuda', generate_images=True, take_metrics=True, sweep_args={}),
     OmegaConf.load(config_file), 
-    OmegaConf.from_cli()
+    OmegaConf.from_cli(),
 )
 if config.save_to.type == 'local_fs':
     config.save_to.path = os.path.join(cur_dir, config.save_to.path, config.runner_id)

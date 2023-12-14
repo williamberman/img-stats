@@ -9,7 +9,7 @@ models:
   args:
     num_inference_steps: 20
   sweep_args:
-    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
 
 - constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
@@ -17,7 +17,7 @@ models:
     torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
   sweep_args:
-    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0]
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
     num_inference_steps: [12, 20]
 
 - constructor: diffusers.DiffusionPipeline.from_pretrained
@@ -26,7 +26,7 @@ models:
     torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
   sweep_args:
-    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0, 20.0]
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
 
 - constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
@@ -34,7 +34,58 @@ models:
     torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
   sweep_args:
-    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 10.0, 15.0, 20.0]
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
+
+- constructor: diffusers.AutoPipelineForText2Image.from_pretrained
+  constructor_args:
+    pretrained_model_or_path: "stabilityai/sd-turbo"
+    torch_dtype: ${torch_dtype:float16}
+    variant: "fp16"
+    safety_checker: null
+  args:
+    num_inference_steps: 1
+    guidance_scale: 0.0
+
+- constructor: diffusers.AutoPipelineForText2Image.from_pretrained
+  constructor_args:
+    pretrained_model_or_path: "stabilityai/sdxl-turbo"
+    torch_dtype: ${torch_dtype:float16}
+    variant: "fp16"
+    safety_checker: null
+  args:
+    num_inference_steps: 1
+    guidance_scale: 0.0
+
+- constructor: diffusers.DiffusionPipeline.from_pretrained
+  constructor_args:
+    pretrained_model_name_or_path: "SimianLuo/LCM_Dreamshaper_v7"
+    safety_checker: null
+  sweep_args:
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
+    num_inference_steps: [4, 8]
+
+- constructor: diffusers.StableDiffusionXLPipeline.from_pretrained
+  constructor_args:
+    pretrained_model_name_or_path: "segmind/SSD-1B"
+    torch_dtype: ${torch_dtype:float16}
+    variant: "fp16"
+    safety_checker: null
+  sweep_args:
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
+    num_inference_steps: [12, 20]
+
+- constructor: diffusers.AutoPipelineForText2Image.from_pretrained
+  constructor_args:
+    pretrained_model_or_path: "warp-ai/wuerstchen"
+    torch_dtype: ${torch_dtype:float16}
+    safety_checker: null
+  args:
+    width: 1024
+    height: 1536
+    prior_guidance_scale: 4.0
+    prior_timesteps: ${wurst_stage_c_timesteps:}
+  img_stats_args:
+    generate_images_batch_size: 1
 
 stats:
 - dataset: coco-validation-2017

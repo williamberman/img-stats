@@ -101,6 +101,7 @@ def main():
             f.write('set -e -u \n\n')
         else:
             f.write('#! /bin/bash \n\n')
+            f.write('set -e -u \n\n')
 
         f.write('echo "starting runner script"\n\n')
 
@@ -112,11 +113,14 @@ def main():
             f.write('wait\n')
             f.write('echo "all jobs finished. exiting."\n')
         else:
-            f.write('echo "all jobs running in background, exiting runner script but jobs are still running."\n')
+            if config.run_in_background:
+                f.write('echo "all jobs running in background, exiting runner script but jobs are still running."\n')
+            else:
+                f.write('echo "all jobs done."\n')
 
-
-    st = os.stat(config.write_to)
-    os.chmod(config.write_to, st.st_mode | stat.S_IEXEC)
+    if not config.slurm:
+        st = os.stat(config.write_to)
+        os.chmod(config.write_to, st.st_mode | stat.S_IEXEC)
 
 def make_cmds():
     gpu = 0
@@ -133,14 +137,16 @@ def make_cmds():
                 logfile = os.path.join(config.log_dir, runner_id + '.log')
 
                 args = f'model_config={model_config} stats_config={stats_config} runner_id={runner_id} sweep_args="{sweep_args}"'
+
+                for k, v in config.models[model_idx].get('img_stats_args', {}).items():
+                    args += f' {k}={v}'
+
                 cmd = f"/usr/bin/time -f '%E real,%U user,%S sys' {os.path.join(cur_dir, 'img_stats.py')} {args}"
 
                 if config.slurm:
                     full_cmd = f"srun --ntasks=1 --nodes=1 --exclusive --output={logfile} {cmd} &"
                 else:
-                    envvars = f"CUDA_VISIBLE_DEVICES={gpu}"
-
-                    full_cmd = f"{envvars} {cmd}"
+                    full_cmd = f"CUDA_VISIBLE_DEVICES={gpu} {cmd}"
 
                     if config.run_in_background:
                         full_cmd += f" &> {logfile} &"
