@@ -39,7 +39,6 @@ models:
 stats:
 - dataset: coco-validation-2017
   metrics: ['fid', 'isc', 'clip']
-  total_images: 10
 
 save_to: 
   type: local_fs
