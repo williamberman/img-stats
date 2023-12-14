@@ -162,4 +162,5 @@ cython_debug/
 out/
 logs/
 runner.sh
+runner.slurm
 coco_val_2017/
