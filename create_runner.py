@@ -73,11 +73,8 @@ def get_runner_id(model_config, sweep_args):
     sweep_arg_keys = [x for x in sweep_args.keys()]
     sweep_arg_keys.sort()
 
-    if len(sweep_arg_keys) > 0:
-        runner_id += '_'
-
     for k in sweep_arg_keys:
-        runner_id += f"{k}_{sweep_args[k]}"
+        runner_id += f"_{k}_{sweep_args[k]}"
 
     return runner_id
 
@@ -98,14 +95,16 @@ def main():
                     runner_id = get_runner_id(model_config, sweep_args)
                     logfile = os.path.join(config.log_dir, runner_id + '.log')
 
-                    args = f'model_config={model_config} stats_config={stats_config} sweep_args=\\"{sweep_args}\\" runner_id={runner_id}'
+                    args = f'model_config={model_config} stats_config={stats_config} runner_id={runner_id}'
                     cmd = f"/usr/bin/time -f '%E real,%U user,%S sys' {os.path.join(cur_dir, 'img_stats.py')} {args}"
 
                     if config.slurm:
-                        # sbatch_cmd = "sbatch --ntasks-per-node=8 --cpus-per-task=12 --gpus-per-task=1"
+                        cmd += f' sweep_args=\\"{sweep_args}\\"'
                         sbatch_cmd = "sbatch --ntasks=1 --cpus-per-task=12 --gpus-per-task=1"
                         full_cmd = f"{sbatch_cmd} --output={logfile} --wrap \"{cmd}\""
                     else:
+                        cmd += f' sweep_args="{sweep_args}"'
+
                         envvars = f"CUDA_VISIBLE_DEVICES={gpu}"
 
                         full_cmd = f"{envvars} {cmd}"
