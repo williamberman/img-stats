@@ -77,7 +77,8 @@ def main():
                 images = model(prompts_, **model_config.args, **config.sweep_args).images
                 for prompt, image in zip(prompts_, images):
                     writer.write(prompt, image)
-                wandb.log({f"generate_image.{config.run_suffix}": prompt_ctr})
+                if prompt_ctr % 100 == 0:
+                    wandb.log({f"generate_image.{config.run_suffix}": prompt_ctr})
 
     if config.take_metrics:
         logger.warning("taking metrics")
@@ -222,8 +223,9 @@ def compute_clip():
         num_images += len(clip_scores)
 
         images_.set_postfix(clip_score=clip_scores_sum/num_images)
-        wandb.log({f"compute_clip.{config.run_suffix}": images_ctr})
-        wandb.log({f"clip_score.{config.run_suffix}": clip_scores_sum/num_images})
+        if images_ctr % 100 == 0:
+            wandb.log({f"compute_clip.{config.run_suffix}": images_ctr})
+            wandb.log({f"clip_score.{config.run_suffix}": clip_scores_sum/num_images})
 
     images_.close()
 
