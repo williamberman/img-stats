@@ -81,6 +81,8 @@ def main():
         if 'clip' in stats_config.metrics:
             metrics['clip'] = compute_clip()
 
+        write_metrics(metrics)
+
         do_isc = 'isc' in stats_config.metrics
         do_fid = 'fid' in stats_config.metrics
 
@@ -106,10 +108,8 @@ def main():
                     verbose=True,
                 )
             )
-
-        assert config.save_to.type == 'local_fs'
-        with open(os.path.join(config.save_to.path, 'metrics.json'), 'w') as metrics_file:
-            json.dump(metrics, metrics_file)
+        
+        write_metrics(metrics)
 
 def seed_all(seed: int):
     random.seed(seed)
@@ -220,6 +220,13 @@ def compute_clip():
     images_.close()
 
     return clip_scores_sum/num_images
+
+def write_metrics(metrics):
+    assert config.save_to.type == 'local_fs'
+    metrics_file = os.path.join(config.save_to.path, 'metrics.json')
+    logger.warning(f"writing metrics to {metrics_file}")
+    with open(metrics_file, 'w') as metrics_file:
+        json.dump(metrics, metrics_file)
 
 if __name__ == "__main__":
     main()
