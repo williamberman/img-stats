@@ -37,10 +37,13 @@ def get_runner_id(model_config, sweep_args):
     else:
         runner_id = ''
 
-    runner_id += f"{model_config}_"
+    runner_id += f"{model_config}"
 
     sweep_arg_keys = [x for x in sweep_args.keys()]
     sweep_arg_keys.sort()
+
+    if len(sweep_arg_keys) > 0:
+        runner_id += '_'
 
     for k in sweep_arg_keys:
         runner_id += f"{k}_{sweep_args[k]}"
@@ -56,7 +59,7 @@ def main():
         f.write('#! /bin/bash \n\n')
 
         for model_idx in range(len(config.models)):
-            for sweep_args in get_sweep_args(config.models[model_idx].sweep_args):
+            for sweep_args in get_sweep_args(config.models[model_idx].get('sweep_args', {})):
                 for stats_idx in range(len(config.stats)):
                     model_config = f"models.{model_idx}"
                     stats_config = f"stats.{stats_idx}"

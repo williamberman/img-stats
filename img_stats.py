@@ -23,7 +23,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 
 config_file = os.environ.get('CONFIG_FILE', os.path.join(cur_dir, 'img_stats.yaml'))
 config = OmegaConf.merge(
-    dict(seed=0, generate_images_batch_size=4, clip_score_batch_size=16, device='cuda', generate_images=True, take_metrics=True),
+    dict(seed=0, generate_images_batch_size=4, clip_score_batch_size=16, device='cuda', generate_images=True, take_metrics=True, sweep_args={}),
     OmegaConf.load(config_file), 
     OmegaConf.from_cli()
 )
@@ -41,11 +41,15 @@ def sub_config(path):
         config_ = config_[x]
     return config_
 
-model_config = sub_config(config.model_config)
-stats_config = sub_config(config.stats_config)
+model_config = OmegaConf.merge(
+    dict(args={}),
+    sub_config(config.model_config)
+)
 
-if 'total_images' not in stats_config:
-    stats_config.total_images = math.inf
+stats_config = OmegaConf.merge(
+    dict(total_images=math.inf),
+    sub_config(config.stats_config)
+)
 
 def main():
     seed_all(config.seed)
@@ -75,7 +79,15 @@ def main():
 
         if do_isc or do_fid:
             assert stats_config.dataset == 'coco-validation-2017'
-            cur_dir
+            assert config.save_to.type == 'local_fs'
+
+            for filename in os.listdir(config.save_to.path):
+                if filename.endswith('.png'):
+                    samples_resize_and_crop = PIL.Image.open(os.path.join(config.save_to.path, filename)).height
+                    break
+
+            # TODO - we should be able to just calculate the metrics for coco_val_2017
+            # once and then re-compute fid/etc.. against those.
             metrics.update(
                 **torch_fidelity.calculate_metrics(
                     input1=config.save_to.path, 
@@ -83,6 +95,7 @@ def main():
                     cuda=True, 
                     isc=do_isc, 
                     fid=do_fid, 
+                    samples_resize_and_crop=samples_resize_and_crop,
                     verbose=True,
                 )
             )
@@ -92,17 +105,10 @@ def main():
             json.dump(metrics, metrics_file)
 
 def seed_all(seed: int):
-    """
-    Args:
-    Helper function for reproducible behavior to set the seed in `random`, `numpy`, `torch`.
-        seed (`int`): The seed to set.
-    """
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
-
-    # safe to call this function even if cuda is not available
-    torch.cuda.manual_seed_all(seed)
+    torch.cuda.manual_seed_all(seed) # it is safe to call this function even if cuda is not available
 
 def get_model():
     splitted = model_config.constructor.split('.')
