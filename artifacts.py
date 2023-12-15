@@ -47,15 +47,27 @@ def main():
 
         if "clip" in metrics:
             make_clip_chart()
+            clip_table = make_clip_table()
+        else:
+            clip_table = None
 
         if "fid" in metrics:
             make_fid_chart()
+            fid_table = make_fid_table()
+        else:
+            fid_table = None
 
         if "isc" in metrics:
             make_isc_chart()
+            isc_table = make_isc_table()
+        else:
+            isc_table = None
 
         if "fid" in metrics and "clip" in metrics:
             make_fid_vs_clip_chart()
+
+        with open(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_tables.txt'), 'w') as tables:
+            tables.write(combine_tables(clip_table, fid_table, isc_table))
 
 def iter_helper():
     rv = []
@@ -121,14 +133,28 @@ def iter_helper():
                 isc_scores.append(found_metrics.get("inception_score_mean", None))
 
             full_sweep_args = dict(sweep_args)
-            if 'num_inference_steps' not in full_sweep_args:
+
+            if 'num_inference_steps' in full_sweep_args:
+                num_inference_steps = full_sweep_args["num_inference_steps"]
+            else:
                 if config.models[model_idx].name == "wuerstchen":
-                    full_sweep_args["num_inference_steps"] = 41
+                    num_inference_steps = 41
                 else:
-                    full_sweep_args['num_inference_steps'] = config.models[model_idx].args.num_inference_steps
+                    num_inference_steps = config.models[model_idx].args.num_inference_steps
+                full_sweep_args['num_inference_steps'] = num_inference_steps
+
             label = f"{config.models[model_idx].name}_{serialize_sweep_args(full_sweep_args)}"
 
-            rv.append(dict(guidance_scales=guidance_scales, clip_scores=clip_scores, fid_scores=fid_scores, isc_scores=isc_scores, label=label))
+            rv.append(dict(
+                guidance_scales=guidance_scales, clip_scores=clip_scores, 
+                fid_scores=fid_scores, isc_scores=isc_scores, 
+                label=label, 
+                model_config=config.models[model_idx],
+                max_clip_score=max([x for x in clip_scores if x is not None]),
+                min_fid_score=min([x for x in fid_scores if x is not None]),
+                max_isc_score=max([x for x in isc_scores if x is not None]),
+                num_inference_steps=num_inference_steps,
+            ))
 
     return rv
 
@@ -148,6 +174,25 @@ def make_clip_chart():
     plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_clip.png'))
     plt.close()
 
+def make_clip_table():
+    logger.warning("making clip table")
+
+    table = r"""\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{ } & \textbf{clip} & \textbf{guidance scale} & \textbf{timesteps} & \textbf{resolution} \\ \hline
+"""
+
+    iter_over = iter_helper()
+
+    iter_over.sort(key=lambda it: it["max_clip_score"], reverse=True)
+
+    for it in iter_over:
+        table += r"\textbf{" + it["model_config"].name + "}" + f" & {round(it['max_clip_score'], 2)} & {it['guidance_scales'][it['clip_scores'].index(it['max_clip_score'])]} & {it['num_inference_steps']} & {it['model_config'].resolution}" + r" \\ \hline" + "\n"
+
+    table += r"\end{tabular}" + "\n"
+
+    return table
+
 def make_fid_chart():
     logger.warning(f"making fid chart")
 
@@ -162,6 +207,25 @@ def make_fid_chart():
     plt.legend()
     plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_fid.png'))
     plt.close()
+
+def make_fid_table():
+    logger.warning("making fid table")
+
+    table = r"""\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{ } & \textbf{fid} & \textbf{guidance scale} & \textbf{timesteps} & \textbf{resolution} \\ \hline
+"""
+
+    iter_over = iter_helper()
+
+    iter_over.sort(key=lambda it: it["min_fid_score"])
+
+    for it in iter_over:
+        table += r"\textbf{" + it["model_config"].name + "}" + f" & {round(it['min_fid_score'], 2)} & {it['guidance_scales'][it['fid_scores'].index(it['min_fid_score'])]} & {it['num_inference_steps']} & {it['model_config'].resolution}" + r" \\ \hline" + "\n"
+
+    table += r"\end{tabular}" + "\n"
+
+    return table
 
 def make_isc_chart():
     logger.warning(f"making fid chart")
@@ -178,6 +242,25 @@ def make_isc_chart():
     plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_isc.png'))
     plt.close()
 
+def make_isc_table():
+    logger.warning("making isc table")
+
+    table = r"""\begin{tabular}{|l|c|c|c|c|}
+\hline
+\textbf{ } & \textbf{isc} & \textbf{guidance scale} & \textbf{timesteps} & \textbf{resolution} \\ \hline
+"""
+
+    iter_over = iter_helper()
+
+    iter_over.sort(key=lambda it: it["max_isc_score"], reverse=True)
+
+    for it in iter_over:
+        table += r"\textbf{" + it["model_config"].name + "}" + f" & {round(it['max_isc_score'], 2)} & {it['guidance_scales'][it['isc_scores'].index(it['max_isc_score'])]} & {it['num_inference_steps']} & {it['model_config'].resolution}" + r" \\ \hline" + "\n"
+
+    table += r"\end{tabular}" + "\n"
+
+    return table
+
 def make_fid_vs_clip_chart():
     logger.warning(f"making fid vs clip chart")
 
@@ -191,6 +274,13 @@ def make_fid_vs_clip_chart():
 
     plt.legend()
     plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_fid_vs_clip.png'))
+
+def combine_tables(clip_table, fid_table, isc_table):
+    assert clip_table is not None and fid_table is not None and isc_table is not None
+    combined = r"\begin{minipage}{0.5\textwidth}" + "\n" + r"\resizebox{\textwidth}{!}{%" + "\n" + clip_table + "}" + "\n" + r"\end{minipage}%" + "\n"
+    combined += r"\begin{minipage}{0.5\textwidth}" + "\n" + r"\resizebox{\textwidth}{!}{%" + "\n" + fid_table + "}" + "\n" + r"\end{minipage}%" + "\n\n"
+    combined += r"\begin{center}" + "\n" r"\begin{minipage}{0.5\textwidth}" + "\n" + r"\resizebox{\textwidth}{!}{%" + "\n" + isc_table + "}" + "\n" + r"\end{minipage}%" + "\n" + r"\end{center}" + "\n"
+    return combined
 
 def get_sweep_args(sweep_args):
     res = [{}]

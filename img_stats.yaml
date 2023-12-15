@@ -11,6 +11,7 @@ models:
     num_inference_steps: 20
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
+  resolution: 512
 
 - name: "sdxl"
   constructor: diffusers.DiffusionPipeline.from_pretrained
@@ -22,6 +23,7 @@ models:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
     num_inference_steps: [12, 20]
   prefix_override: "failed_jobs_models.0"
+  resolution: 1025
 
 - name: "amused-512"
   constructor: diffusers.DiffusionPipeline.from_pretrained
@@ -33,6 +35,7 @@ models:
     num_inference_steps: 12
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
+  resolution: 512
 
 - name: "amused-256"
   constructor: diffusers.DiffusionPipeline.from_pretrained
@@ -44,6 +47,7 @@ models:
     num_inference_steps: 12
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
+  resolution: 256
 
 - name: "sd-turbo"
   constructor: diffusers.AutoPipelineForText2Image.from_pretrained
@@ -66,6 +70,7 @@ models:
   args:
     num_inference_steps: 1
     guidance_scale: 0.0
+  resolution: 1024
 
 - name: "lcm"
   constructor: diffusers.DiffusionPipeline.from_pretrained
@@ -75,6 +80,7 @@ models:
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
     num_inference_steps: [4, 8]
+  resolution: 512
 
 - name: "ssd-1b"
   constructor: diffusers.StableDiffusionXLPipeline.from_pretrained
@@ -86,6 +92,7 @@ models:
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
     num_inference_steps: [12, 20]
+  resolution: 1024
 
 - name: "wuerstchen"
   constructor: diffusers.AutoPipelineForText2Image.from_pretrained
@@ -101,6 +108,7 @@ models:
   img_stats_args:
     generate_images_batch_size: 1
   prefix_override: "failed_jobs_models.1"
+  resolution: "1024x1536"
 
 stats:
 - dataset: coco-validation-2017
