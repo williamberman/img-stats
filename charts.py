@@ -26,21 +26,36 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 
 cli_config = OmegaConf.merge(dict(config_file=os.path.join(cur_dir, "img_stats.yaml")), OmegaConf.from_cli())
 config = OmegaConf.merge(
-    dict(),
+    dict(only=None),
     OmegaConf.load(cli_config.config_file), 
     cli_config,
 )
 
+if config.only is not None:
+    if isinstance(config.only, str):
+        model_indices = [int(x) for x in config.only.split(',')]
+    elif isinstance(config.only, (int, float, str)):
+        model_indices = [int(config.only)]
+    else:
+        model_indices = config.only
+else:
+    model_indices = [x for x in range(len(config.models))]
+
 def main():
     for stats_idx in range(len(config.stats)):
-        if "clip" in config.stats[stats_idx].metrics:
+        metrics = config.stats[stats_idx].metrics
+
+        if "clip" in metrics:
             make_clip_chart()
 
-        if "fid" in config.stats[stats_idx].metrics:
+        if "fid" in metrics:
             make_fid_chart()
 
-        if "isc" in config.stats[stats_idx].metrics:
+        if "isc" in metrics:
             make_isc_chart()
+
+        if "fid" in metrics and "clip" in metrics:
+            make_fid_vs_clip_chart()
 
 def make_clip_chart():
     logger.warning(f"making clip chart")
@@ -50,7 +65,7 @@ def make_clip_chart():
     plt.ylabel("CLIP Score (10k)")
     plt.xlabel("cfg scale")
 
-    for model_idx in range(len(config.models)):
+    for model_idx in model_indices:
         if "guidance_scale" not in config.models[model_idx].get("sweep_args", {}):
             continue
 
@@ -104,7 +119,7 @@ def make_fid_chart():
     plt.ylabel("FID Score (10k)")
     plt.xlabel("cfg scale")
 
-    for model_idx in range(len(config.models)):
+    for model_idx in model_indices:
         if "guidance_scale" not in config.models[model_idx].get("sweep_args", {}):
             continue
 
@@ -114,7 +129,7 @@ def make_fid_chart():
         sweep_args = get_sweep_args(sweep_args)
 
         for sweep_args in sweep_args:
-            clip_scores = []
+            fid_scores = []
             guidance_scales = config.models[model_idx].sweep_args.guidance_scale
             do_plot = True
 
@@ -138,13 +153,13 @@ def make_fid_chart():
                 with open(filename) as f:
                     metrics = json.load(f)
 
-                clip_scores.append(metrics["frechet_inception_distance"])
+                fid_scores.append(metrics["frechet_inception_distance"])
 
             if do_plot:
                 full_sweep_args = dict(sweep_args)
                 if 'num_inference_steps' not in full_sweep_args:
                     full_sweep_args['num_inference_steps'] = config.models[model_idx].args.num_inference_steps
-                plt.plot(guidance_scales, clip_scores, marker="o", label=f"{config.models[model_idx].name}_{serialize_sweep_args(full_sweep_args)}")
+                plt.plot(guidance_scales, fid_scores, marker="o", label=f"{config.models[model_idx].name}_{serialize_sweep_args(full_sweep_args)}")
 
     plt.legend()
     plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_fid.png'))
@@ -158,7 +173,7 @@ def make_isc_chart():
     plt.ylabel("Inception Score (10k)")
     plt.xlabel("cfg scale")
 
-    for model_idx in range(len(config.models)):
+    for model_idx in model_indices:
         if "guidance_scale" not in config.models[model_idx].get("sweep_args", {}):
             continue
 
@@ -168,6 +183,60 @@ def make_isc_chart():
         sweep_args = get_sweep_args(sweep_args)
 
         for sweep_args in sweep_args:
+            isc_scores = []
+            guidance_scales = config.models[model_idx].sweep_args.guidance_scale
+            do_plot = True
+
+            for guidance_scale in guidance_scales:
+                full_sweep_args = dict(sweep_args)
+                full_sweep_args['guidance_scale'] = guidance_scale
+
+                runner_id = f"{config.run_prefix}_models.{model_idx}_{serialize_sweep_args(full_sweep_args)}"
+
+                assert config.save_to.type == 'local_fs'
+                run_save_path = os.path.join(
+                    cur_dir, config.save_to.path, runner_id)
+                filename = os.path.join(run_save_path, 'metrics.json')
+
+                if not os.path.exists(filename):
+                    logger.warning(
+                        f"metrics file does not exist {filename}. skipping sweep.")
+                    do_plot = False
+                    continue
+
+                with open(filename) as f:
+                    metrics = json.load(f)
+
+                isc_scores.append(metrics["inception_score_mean"])
+
+            if do_plot:
+                full_sweep_args = dict(sweep_args)
+                if 'num_inference_steps' not in full_sweep_args:
+                    full_sweep_args['num_inference_steps'] = config.models[model_idx].args.num_inference_steps
+                plt.plot(guidance_scales, isc_scores, marker="o", label=f"{config.models[model_idx].name}_{serialize_sweep_args(full_sweep_args)}")
+
+    plt.legend()
+    plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_isc.png'))
+
+def make_fid_vs_clip_chart():
+    logger.warning(f"making fid vs clip chart")
+
+    plt.figure()
+    plt.title(f"FID vs CLIP")
+    plt.ylabel("FID Score (10k)")
+    plt.xlabel("CLIP Score (10k)")
+
+    for model_idx in model_indices:
+        if "guidance_scale" not in config.models[model_idx].get("sweep_args", {}):
+            continue
+
+        sweep_args = dict(
+            config.models[model_idx].get('sweep_args', {}))
+        sweep_args.pop("guidance_scale")
+        sweep_args = get_sweep_args(sweep_args)
+
+        for sweep_args in sweep_args:
+            fid_scores = []
             clip_scores = []
             guidance_scales = config.models[model_idx].sweep_args.guidance_scale
             do_plot = True
@@ -192,16 +261,17 @@ def make_isc_chart():
                 with open(filename) as f:
                     metrics = json.load(f)
 
-                clip_scores.append(metrics["inception_score_mean"])
+                fid_scores.append(metrics["frechet_inception_distance"])
+                clip_scores.append(metrics["clip"])
 
             if do_plot:
                 full_sweep_args = dict(sweep_args)
                 if 'num_inference_steps' not in full_sweep_args:
                     full_sweep_args['num_inference_steps'] = config.models[model_idx].args.num_inference_steps
-                plt.plot(guidance_scales, clip_scores, marker="o", label=f"{config.models[model_idx].name}_{serialize_sweep_args(full_sweep_args)}")
+                plt.plot(clip_scores, fid_scores, marker="o", label=f"{config.models[model_idx].name}_{serialize_sweep_args(full_sweep_args)}")
 
     plt.legend()
-    plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_isc.png'))
+    plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_fid_vs_clip.png'))
 
 def get_sweep_args(sweep_args):
     res = [{}]
