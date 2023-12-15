@@ -18,7 +18,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 
 cli_config = OmegaConf.merge(dict(config_file=os.path.join(cur_dir, "img_stats.yaml")), OmegaConf.from_cli())
 config = OmegaConf.merge(
-    dict(only=None, skip_guidance_scales=[]),
+    dict(only=None, skip={}, skip_guidance_scales=[]),
     OmegaConf.load(cli_config.config_file), 
     cli_config,
 )
@@ -37,6 +37,9 @@ if config.only is not None:
         model_indices = config.only
 else:
     model_indices = [x for x in range(len(config.models))]
+
+if isinstance(config.skip, str):
+    config.skip = json.loads(config.skip)
 
 def main():
     for stats_idx in range(len(config.stats)):
@@ -67,6 +70,15 @@ def iter_helper():
         sweep_args = get_sweep_args(sweep_args)
 
         for sweep_args in sweep_args:
+            if model_idx in config.skip:
+                skip_sweep = False
+                for skip_sweep_arg_k, skip_sweep_arg_v in config.skip[model_idx].items():
+                    if sweep_args[skip_sweep_arg_k] == skip_sweep_arg_v:
+                        skip_sweep = True
+                if skip_sweep:
+                    logger.warning('skipping sweep')
+                    continue
+
             clip_scores = []
             fid_scores = []
             isc_scores = []

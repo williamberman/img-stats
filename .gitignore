@@ -163,6 +163,7 @@ out/
 logs/
 runner*.sh
 runner*.slurm
+make_charts*.sh
 coco_val_2017/
 slurm-*.out
 wandb/
