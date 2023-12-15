@@ -1,0 +1,34 @@
+models:
+
+- constructor: diffusers.DiffusionPipeline.from_pretrained
+  constructor_args:
+    pretrained_model_name_or_path: "stabilityai/stable-diffusion-xl-base-1.0"
+    torch_dtype: ${torch_dtype:float16}
+    variant: "fp16"
+  args:
+    num_inference_steps: 20
+  sweep_args:
+    guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
+
+- constructor: diffusers.AutoPipelineForText2Image.from_pretrained
+  constructor_args:
+    pretrained_model_or_path: "warp-ai/wuerstchen"
+    torch_dtype: ${torch_dtype:float16}
+    safety_checker: null
+  args:
+    width: 1024
+    height: 1536
+    prior_guidance_scale: 4.0
+    prior_timesteps: ${wurst_stage_c_timesteps:}
+  img_stats_args:
+    generate_images_batch_size: 1
+
+stats:
+- dataset: coco-validation-2017
+  metrics: ['fid', 'isc', 'clip']
+
+save_to: 
+  type: local_fs
+  path: out
+
+log_dir: logs
