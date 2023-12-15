@@ -4,15 +4,7 @@ import os
 import json
 import logging
 import torch
-import uuid
 from omegaconf import OmegaConf
-import importlib
-import numpy as np
-import random
-from tqdm import tqdm
-import PIL.Image
-from transformers import CLIPModel, CLIPProcessor
-import math
 from diffusers.pipelines.wuerstchen import DEFAULT_STAGE_C_TIMESTEPS
 import matplotlib.pyplot as plt
 
