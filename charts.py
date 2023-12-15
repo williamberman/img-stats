@@ -61,12 +61,16 @@ def iter_helper():
     rv = []
 
     for model_idx in model_indices:
-        if "guidance_scale" not in config.models[model_idx].get("sweep_args", {}):
+        if "sweep_args" in config.models[model_idx] and "guidance_scale" in config.models[model_idx].sweep_args:
+            guidance_scales = [x for x in config.models[model_idx].sweep_args.guidance_scale if x not in config.skip_guidance_scales]
+        elif "args" in config.models[model_idx] and "prior_guidance_scale" in config.models[model_idx].args:
+            guidance_scales = [config.models[model_idx].args.prior_guidance_scale]
+        else:
             continue
 
         sweep_args = dict(
             config.models[model_idx].get('sweep_args', {}))
-        sweep_args.pop("guidance_scale")
+        sweep_args.pop("guidance_scale", None)
         sweep_args = get_sweep_args(sweep_args)
 
         for sweep_args in sweep_args:
@@ -82,11 +86,12 @@ def iter_helper():
             clip_scores = []
             fid_scores = []
             isc_scores = []
-            guidance_scales = [x for x in config.models[model_idx].sweep_args.guidance_scale if x not in config.skip_guidance_scales]
 
             for guidance_scale in guidance_scales:
                 full_sweep_args = dict(sweep_args)
-                full_sweep_args['guidance_scale'] = guidance_scale
+
+                if "sweep_args" in config.models[model_idx] and "guidance_scale" in config.models[model_idx].sweep_args:
+                    full_sweep_args['guidance_scale'] = guidance_scale
 
                 prefixes = [f"{config.run_prefix}_models.{model_idx}"]
 
@@ -96,7 +101,10 @@ def iter_helper():
                 found_metrics = {}
 
                 for run_prefix in prefixes:
-                    runner_id = f"{run_prefix}_{serialize_sweep_args(full_sweep_args)}"
+                    if len(full_sweep_args) > 0:
+                        runner_id = f"{run_prefix}_{serialize_sweep_args(full_sweep_args)}"
+                    else:
+                        runner_id = run_prefix
 
                     assert config.save_to.type == 'local_fs'
                     run_save_path = os.path.join(
@@ -114,7 +122,10 @@ def iter_helper():
 
             full_sweep_args = dict(sweep_args)
             if 'num_inference_steps' not in full_sweep_args:
-                full_sweep_args['num_inference_steps'] = config.models[model_idx].args.num_inference_steps
+                if config.models[model_idx].name == "wuerstchen":
+                    full_sweep_args["num_inference_steps"] = 41
+                else:
+                    full_sweep_args['num_inference_steps'] = config.models[model_idx].args.num_inference_steps
             label = f"{config.models[model_idx].name}_{serialize_sweep_args(full_sweep_args)}"
 
             rv.append(dict(guidance_scales=guidance_scales, clip_scores=clip_scores, fid_scores=fid_scores, isc_scores=isc_scores, label=label))
