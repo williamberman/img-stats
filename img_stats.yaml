@@ -1,6 +1,7 @@
 models:
 
-- constructor: diffusers.DiffusionPipeline.from_pretrained
+- name: "sd15"
+  constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
     pretrained_model_name_or_path: "runwayml/stable-diffusion-v1-5"
     torch_dtype: ${torch_dtype:float16}
@@ -11,7 +12,8 @@ models:
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
 
-- constructor: diffusers.DiffusionPipeline.from_pretrained
+- name: "sdxl"
+  constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
     pretrained_model_name_or_path: "stabilityai/stable-diffusion-xl-base-1.0"
     torch_dtype: ${torch_dtype:float16}
@@ -19,24 +21,32 @@ models:
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
     num_inference_steps: [12, 20]
+  prefix_override: "failed_jobs_models.0"
 
-- constructor: diffusers.DiffusionPipeline.from_pretrained
+- name: "amused-512"
+  constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
     pretrained_model_name_or_path: "huggingface/amused-512"
     torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
+  args:
+    num_inference_steps: 12
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
 
-- constructor: diffusers.DiffusionPipeline.from_pretrained
+- name: "amused-256"
+  constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
     pretrained_model_name_or_path: "huggingface/amused-256"
     torch_dtype: ${torch_dtype:float16}
     variant: "fp16"
+  args:
+    num_inference_steps: 12
   sweep_args:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
 
-- constructor: diffusers.AutoPipelineForText2Image.from_pretrained
+- name: "sd-turbo"
+  constructor: diffusers.AutoPipelineForText2Image.from_pretrained
   constructor_args:
     pretrained_model_or_path: "stabilityai/sd-turbo"
     torch_dtype: ${torch_dtype:float16}
@@ -46,7 +56,8 @@ models:
     num_inference_steps: 1
     guidance_scale: 0.0
 
-- constructor: diffusers.AutoPipelineForText2Image.from_pretrained
+- name: "sdxl-turbo"
+  constructor: diffusers.AutoPipelineForText2Image.from_pretrained
   constructor_args:
     pretrained_model_or_path: "stabilityai/sdxl-turbo"
     torch_dtype: ${torch_dtype:float16}
@@ -56,7 +67,8 @@ models:
     num_inference_steps: 1
     guidance_scale: 0.0
 
-- constructor: diffusers.DiffusionPipeline.from_pretrained
+- name: "lcm"
+  constructor: diffusers.DiffusionPipeline.from_pretrained
   constructor_args:
     pretrained_model_name_or_path: "SimianLuo/LCM_Dreamshaper_v7"
     safety_checker: null
@@ -64,7 +76,8 @@ models:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
     num_inference_steps: [4, 8]
 
-- constructor: diffusers.StableDiffusionXLPipeline.from_pretrained
+- name: "ssd-1b"
+  constructor: diffusers.StableDiffusionXLPipeline.from_pretrained
   constructor_args:
     pretrained_model_name_or_path: "segmind/SSD-1B"
     torch_dtype: ${torch_dtype:float16}
@@ -74,7 +87,8 @@ models:
     guidance_scale: [1.5, 2.0, 3.0, 4.0, 5.0, 6.0, 7.0, 8.0, 9.0, 10.0, 15.0, 20.0]
     num_inference_steps: [12, 20]
 
-- constructor: diffusers.AutoPipelineForText2Image.from_pretrained
+- name: "wuerstchen"
+  constructor: diffusers.AutoPipelineForText2Image.from_pretrained
   constructor_args:
     pretrained_model_or_path: "warp-ai/wuerstchen"
     torch_dtype: ${torch_dtype:float16}
@@ -86,6 +100,7 @@ models:
     prior_timesteps: ${wurst_stage_c_timesteps:}
   img_stats_args:
     generate_images_batch_size: 1
+  prefix_override: "failed_jobs_models.1"
 
 stats:
 - dataset: coco-validation-2017
