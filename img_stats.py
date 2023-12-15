@@ -136,14 +136,32 @@ def get_model():
     return model
 
 def get_prompts():
+    assert config.save_to.type == 'local_fs'
+
+    ctr = 0
+
+    index_filename = os.path.join(config.save_to.path, 'index.jsonl')
+    if os.path.exists(index_filename):
+        with open(index_filename, 'r') as file:
+            for _ in file:
+                ctr += 1
+        logger.warning(f'existing index file found. starting from prompt number {ctr}')
+    else:
+        logger.warning(f'no existing index file found. starting from prompt {ctr}')
+
     assert stats_config.dataset == 'coco-validation-2017'
     prompt_file = os.path.join(cur_dir, "coco-validation-2017-prompts.jsonl")
-    ctr = 0
+
     with open(prompt_file, 'r') as prompt_file:
+        for _ in range(ctr):
+            prompt_file.readline()
+
         while True:
             line = prompt_file.readline()
+
             if line == '' or ctr > stats_config.total_images:
                 break
+
             yield json.loads(line)
             ctr += 1
 
@@ -165,7 +183,7 @@ class ImagesWriter:
         # buffering=1 -> line buffered
         filename = os.path.join(config.save_to.path, 'index.jsonl')
         logger.warning(f"writing to index file {filename}")
-        self.index_file = open(filename, 'w', buffering=1)
+        self.index_file = open(filename, 'a', buffering=1)
         return self
 
     def write(self, prompt, image):
