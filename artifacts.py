@@ -18,7 +18,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 
 cli_config = OmegaConf.merge(dict(config_file=os.path.join(cur_dir, "img_stats.yaml")), OmegaConf.from_cli())
 config = OmegaConf.merge(
-    dict(only=None, skip={}, skip_guidance_scales=[], save_to_root=False),
+    dict(only=None, skip={}, skip_guidance_scales=[], save_to_root=False, title=True),
     OmegaConf.load(cli_config.config_file), 
     cli_config,
 )
@@ -166,13 +166,15 @@ def make_clip_chart():
 
     plt.figure()
     plt.grid(True)
-    plt.title(f"CLIP Score")
+    if config.title:
+        plt.title(f"CLIP Score")
     plt.ylabel("CLIP Score (10k)")
     plt.xlabel("cfg scale")
 
     for it in iter_helper():
         plt.plot(it["guidance_scales"], it["clip_scores"], marker="o", label=it["label"])
 
+    plt.legend()
     plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_clip.png'))
     if config.save_to_root:
         plt.savefig(os.path.join(cur_dir, 'charts', 'clip.png'))
@@ -183,7 +185,7 @@ def make_clip_table():
 
     table = r"""\begin{tabular}{|l|c|c|c|c|}
 \hline
-\textbf{ } & \textbf{clip} & \textbf{guidance scale} & \textbf{timesteps} & \textbf{resolution} \\ \hline
+\textbf{ } & \textbf{CLIP} & \textbf{guidance scale} & \textbf{timesteps} & \textbf{resolution} \\ \hline
 """
 
     iter_over = iter_helper()
@@ -202,7 +204,8 @@ def make_fid_chart():
 
     plt.figure()
     plt.grid(True)
-    plt.title(f"FID")
+    if config.title:
+        plt.title(f"FID")
     plt.ylabel("FID Score (10k)")
     plt.xlabel("cfg scale")
 
@@ -219,7 +222,7 @@ def make_fid_table():
 
     table = r"""\begin{tabular}{|l|c|c|c|c|}
 \hline
-\textbf{ } & \textbf{fid} & \textbf{guidance scale} & \textbf{timesteps} & \textbf{resolution} \\ \hline
+\textbf{ } & \textbf{FID} & \textbf{guidance scale} & \textbf{timesteps} & \textbf{resolution} \\ \hline
 """
 
     iter_over = iter_helper()
@@ -238,7 +241,8 @@ def make_isc_chart():
 
     plt.figure()
     plt.grid(True)
-    plt.title(f"Inception Score")
+    if config.title:
+        plt.title(f"Inception Score")
     plt.ylabel("Inception Score (10k)")
     plt.xlabel("cfg scale")
 
@@ -255,7 +259,7 @@ def make_isc_table():
 
     table = r"""\begin{tabular}{|l|c|c|c|c|}
 \hline
-\textbf{ } & \textbf{isc} & \textbf{guidance scale} & \textbf{timesteps} & \textbf{resolution} \\ \hline
+\textbf{ } & \textbf{ISC} & \textbf{guidance scale} & \textbf{timesteps} & \textbf{resolution} \\ \hline
 """
 
     iter_over = iter_helper()
@@ -274,14 +278,14 @@ def make_fid_vs_clip_chart():
 
     plt.figure()
     plt.grid(True)
-    plt.title(f"FID vs CLIP")
+    if config.title:
+        plt.title(f"FID vs CLIP")
     plt.ylabel("FID Score (10k)")
     plt.xlabel("CLIP Score (10k)")
 
     for it in iter_helper():
         plt.plot(it["clip_scores"], it["fid_scores"], marker="o", label=it["label"])
 
-    plt.legend()
     plt.savefig(os.path.join(cur_dir, config.save_to.path, config.run_prefix + '_fid_vs_clip.png'))
     if config.save_to_root:
         plt.savefig(os.path.join(cur_dir, 'charts', 'fid_vs_clip.png'))
@@ -289,9 +293,11 @@ def make_fid_vs_clip_chart():
 
 def combine_tables(clip_table, fid_table, isc_table):
     assert clip_table is not None and fid_table is not None and isc_table is not None
-    combined = r"\begin{minipage}{0.5\textwidth}" + "\n" + r"\resizebox{\textwidth}{!}{%" + "\n" + clip_table + "}" + "\n" + r"\end{minipage}%" + "\n"
-    combined += r"\begin{minipage}{0.5\textwidth}" + "\n" + r"\resizebox{\textwidth}{!}{%" + "\n" + fid_table + "}" + "\n" + r"\end{minipage}%" + "\n\n"
-    combined += r"\begin{center}" + "\n" r"\begin{minipage}{0.5\textwidth}" + "\n" + r"\resizebox{\textwidth}{!}{%" + "\n" + isc_table + "}" + "\n" + r"\end{minipage}%" + "\n" + r"\end{center}" + "\n"
+    combined = r"\begin{figure}[h]" + "\n" + f"\small" + "\n" + f"\centering" + "\n"
+    combined += r"\subfloat[CLIP Score]{" + "\n" + clip_table + "}\n\n"
+    combined += r"\subfloat[FID Score]{" + "\n" + fid_table + "}\n\n"
+    combined += r"\subfloat[Inception Score]{" + "\n" + isc_table + "}\n"
+    combined += r"\caption{Model Quality Tables}" + "\n" + r"\label{fig:f4}" + "\n" + r"\end{figure}"
     return combined
 
 def get_sweep_args(sweep_args):
