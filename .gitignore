@@ -168,3 +168,4 @@ coco_val_2017/
 slurm-*.out
 wandb/
 *.swp
+charts/
