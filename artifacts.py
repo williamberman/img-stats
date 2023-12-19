@@ -140,7 +140,7 @@ def iter_helper():
             if 'num_inference_steps' in full_sweep_args:
                 num_inference_steps = full_sweep_args["num_inference_steps"]
             else:
-                if config.models[model_idx].name == "wuerstchen":
+                if config.models[model_idx].name == "würstchen":
                     num_inference_steps = 41
                 else:
                     num_inference_steps = config.models[model_idx].args.num_inference_steps

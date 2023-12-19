@@ -26,7 +26,7 @@ cur_dir = os.path.dirname(os.path.abspath(__file__))
 
 cli_config = OmegaConf.merge(dict(config_file=os.path.join(cur_dir, "img_stats.yaml")), OmegaConf.from_cli())
 config = OmegaConf.merge(
-    dict(seed=0, generate_images_batch_size=4, clip_score_batch_size=16, device='cuda', generate_images=True, take_metrics=True, sweep_args={}),
+    dict(seed=0, generate_images_batch_size=4, clip_score_batch_size=16, device='cuda', generate_images=True, take_metrics=True, sweep_args={}, take_clip=True, take_isc=True, take_fid=True),
     OmegaConf.load(cli_config.config_file), 
     cli_config,
 )
@@ -85,15 +85,11 @@ def main():
     if config.take_metrics:
         logger.warning("taking metrics")
 
-        metrics = {}
+        if 'clip' in stats_config.metrics and config.take_clip:
+            write_metrics(clip=compute_clip())
 
-        if 'clip' in stats_config.metrics:
-            metrics['clip'] = compute_clip()
-
-        write_metrics(metrics)
-
-        do_isc = 'isc' in stats_config.metrics
-        do_fid = 'fid' in stats_config.metrics
+        do_isc = 'isc' in stats_config.metrics and config.take_isc
+        do_fid = 'fid' in stats_config.metrics and config.take_fid
 
         if do_isc or do_fid:
             assert stats_config.dataset == 'coco-validation-2017'
@@ -106,8 +102,8 @@ def main():
 
             # TODO - we should be able to just calculate the metrics for coco_val_2017
             # once and then re-compute fid/etc.. against those.
-            metrics.update(
-                **torch_fidelity.calculate_metrics(
+            write_metrics(
+                torch_fidelity.calculate_metrics(
                     input1=config.save_to.path, 
                     input2=os.path.join(cur_dir, 'coco_val_2017'),
                     cuda=True, 
@@ -117,8 +113,6 @@ def main():
                     verbose=True,
                 )
             )
-        
-        write_metrics(metrics)
 
 def seed_all(seed: int):
     random.seed(seed)
@@ -253,10 +247,18 @@ def compute_clip():
 
 def write_metrics(metrics):
     assert config.save_to.type == 'local_fs'
+
+    metrics = dict(**metrics)
+
     metrics_file = os.path.join(config.save_to.path, 'metrics.json')
+    if os.path.exists(metrics_file):
+        logger.warning(f"updating existing metrics file {metrics_file}")
+        with open(metrics_file, 'r') as f:
+            metrics.update(json.load(f))
+
     logger.warning(f"writing metrics to {metrics_file}")
-    with open(metrics_file, 'w') as metrics_file:
-        json.dump(metrics, metrics_file)
+    with open(metrics_file, 'w') as f:
+        json.dump(metrics, f)
 
 if __name__ == "__main__":
     main()
